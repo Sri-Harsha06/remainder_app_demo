@@ -28,15 +28,10 @@ type Event struct {
 	UpdatedBy string `json:"updatedby,omitempty" bson:"updatedby,omitempty"`
 }
 
-type Person struct {
-	ID        primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
-	Firstname string             `json:"firstname,omitempty" bson:"firstname,omitempty"`
-	Lastname  string             `json:"lastname,omitempty" bson:"lastname,omitempty"`
-}
 
 func main() {
-	fmt.Println(time.Now().Format("01-02-2006"))
-	fmt.Println(time.Now().Format("15:04"))
+	// fmt.Println(time.Now().AddDate(0, 0, 1).Format("02-01-2006"))
+	// fmt.Println(time.Now().Format("15:04"))
 	fmt.Println("Starting the application...")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	clientOptions := options.Client().ApplyURI("mongodb+srv://harsha:harsha@cluster0.xnvctix.mongodb.net/?retryWrites=true&w=majority")
@@ -50,6 +45,7 @@ func main() {
 	router.HandleFunc("/event4/{date}", readEventByDate).Methods("GET")
 	router.HandleFunc("/update", updateEvent).Methods("POST")
 	router.HandleFunc("/delete/{id}", deleteEvent).Methods("GET")
+	router.HandleFunc("/eventstom", findtmrevents).Methods("GET")
 	http.ListenAndServe(":12345", router)
 }
 
@@ -68,7 +64,7 @@ func AddEvent(response http.ResponseWriter, request *http.Request) {
 func readEventById(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	params := mux.Vars(request)
-	id:= params["id"]
+	id := params["id"]
 	// fmt.Printf("%T", id)
 	var event Event
 	collection := client.Database("events").Collection("event")
@@ -111,7 +107,7 @@ func readEventByName(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	var events []Event
 	params := mux.Vars(request)
-	name:= params["name"]
+	name := params["name"]
 	// fmt.Printf("%T", id)
 	collection := client.Database("events").Collection("event")
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
@@ -216,4 +212,32 @@ func deleteEvent(response http.ResponseWriter, request *http.Request) {
 		panic(err)
 	}
 	json.NewEncoder(response).Encode(result)
+}
+
+func findtmrevents(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("content-type", "application/json")
+	var events []Event
+	collection := client.Database("events").Collection("event")
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	dt := time.Now().AddDate(0, 0, 1).Format("02-01-2006")
+	fmt.Printf("%T", dt)
+	fmt.Println(dt)
+	cursor, err := collection.Find(ctx, Event{Date: dt})
+	if err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
+		return
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var event Event
+		cursor.Decode(&event)
+		events = append(events, event)
+	}
+	if err := cursor.Err(); err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
+		return
+	}
+	json.NewEncoder(response).Encode(events)
 }
