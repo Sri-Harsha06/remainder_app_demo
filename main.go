@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"remainder-app/dbiface"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -27,7 +28,6 @@ type Event struct {
 	UpdatedBy string `json:"updatedby,omitempty" bson:"updatedby,omitempty"`
 }
 
-
 func main() {
 	// fmt.Println(time.Now().AddDate(0, 0, 1).Format("02-01-2006"))
 	// fmt.Println(time.Now().Format("15:04"))
@@ -48,6 +48,11 @@ func main() {
 	http.ListenAndServe(":12345", router)
 }
 
+func insertData(collection dbiface.CollectionAPI, event Event) (*mongo.InsertOneResult, error) {
+	res, err := collection.InsertOne(context.Background(), event)
+	return res, err
+}
+
 func AddEvent(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	var event Event
@@ -55,8 +60,9 @@ func AddEvent(response http.ResponseWriter, request *http.Request) {
 	_ = json.NewDecoder(request.Body).Decode(&event)
 	// fmt.Println(event)
 	collection := client.Database("events").Collection("event")
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	result, _ := collection.InsertOne(ctx, event)
+	// ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	// result, _ := collection.InsertOne(ctx, event)
+	result, _ := insertData(collection, event)
 	json.NewEncoder(response).Encode(result)
 }
 
